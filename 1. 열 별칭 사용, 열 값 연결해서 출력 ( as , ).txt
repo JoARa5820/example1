@@ -1,0 +1,15 @@
+1. 열 별칭 사용, 열 값 연결해서 출력 ( as , || )
+<문제1> employees 테이블에서 employee_id, last_name과 first_name은 연결해서 표시하고(공백으로 구분) 열 별칭은 화면예 처럼 보고서 작성해 주세요.
+
+Emp# 	Employee Name
+---------- ------------------------------
+100 	King Steven
+101 	Kochhar Neena
+102 	De Haan Lex
+103 	Hunold Alexander
+104 	Ernst Bruce
+
+[Answer]
+select employee_id "Emp #" , last_name ||' '|| first_name "Employee Name"
+from employees;
+
