@@ -1,0 +1,204 @@
+<과제>
+
+import urllib.request
+from bs4 import BeautifulSoup
+
+params = [] # 파일경로들을 params에 넣어놓음/넘겨줌
+
+for i in range(39,49,1):
+    list_url = "https://search.joins.com/TotalNews?page="+str(i)+"&Keyword=%ED%99%98%EA%B2%BD%20%EC%98%A4%EC%97%BC&SortType=New&SourceGroupType=Joongang&ServiceCode=13&SearchCategoryType=TotalNews"
+
+    url = urllib.request.Request(list_url)
+    res = urllib.request.urlopen(url, timeout=100).read().decode("utf-8")	# timeout=100 : 대기시간이 100초보다 길어질 경우 오류메세지를 남기고 다른 명령 수행
+    soup= BeautifulSoup(res, "html.parser")
+    
+    # 39쪽 불러오기 - 각 제목들 뽑기 soup.findAll('strong', {'class':'headline mg'}) - 각 제목들의 기사 링크 뽑기 params.append(link.find('a').get('href'))
+    for link in soup.findAll('strong', {'class':'headline mg'}):
+        params.append(link.find('a').get('href'))
+
+
+# print(params) # 39쪽(10개)~49쪽(10개), 총 100개의 기사제목링크들 뽑아옴
+
+
+txt= []
+
+for i in params: # 기사링크 하나씩 들여오기
+    # print(i)
+    url = urllib.request.Request(i)
+    res = urllib.request.urlopen(url).read().decode("utf-8")
+    soup= BeautifulSoup(res, "html.parser")
+    result = soup.find_all('div',id='article_body') # 기사본문스크랩하기
+    
+    for i in result:
+        #print(i.text)
+        txt.append(i.text)
+
+# txt: 100개의 기사 본문 모두 긁어옴
+
+# type(txt): list 형식
+
+#---------------------------------------
+
+new_text ='' # 문자형식으로 만듬
+
+for i in range(0,100): # 100개의 기사
+    new_text = new_text + txt[i] + '\n'
+    
+# type(new_text): str 형식
+
+
+
+# 파일로 떨어트리기
+with open("c:/data/natural.txt","w",encoding="utf-8") as file:
+    for i in range(0,100):
+        file.write(txt[i])
+
+
+# 리드라인,리드라인즈로 하면 리스트 형식으로 읽어들이기 때문에 file.read()를 사용해야함
+with open("c:/data/natural.txt","r",encoding="utf-8") as file:
+    natural = file.read()
+
+
+
+#natural # txt형식으로 읽어들인 natural파일 - 텍스트 들어있는 변수
+
+
+import nltk
+from konlpy.tag import Twitter
+twitter = Twitter()
+
+tokens_ko = twitter.nouns(natural) # 단어 추출
+tokens_ko
+
+ko = nltk.Text(tokens_ko)
+
+ko.vocab().most_common(50) # 미리보기
+
+#--------------------------------------
+# 불용어 제거
+
+ko = [eachword for eachword in ko if len(eachword)>=2]
+
+ko = nltk.Text(ko)
+
+ko.vocab().most_common(50) # 미리보기
+#--------------------------------------
+# 1차 정제
+stopword=['.',',','(',')','위해','때문','주민','특파원','최근','기자','대한','관련','보도','현재','주장','이번','지난해','경우','정도','이상','사람','총리','회사']
+
+ko = [eachword for eachword in ko if eachword not in stopword]
+
+ko = nltk.Text(ko)
+
+ko.vocab().most_common(50) # 미리보기
+
+# 2차 정제
+stopword=['대표','발표','투자','시작','모두','최대','당국','발해']
+
+ko = [eachword for eachword in ko if eachword not in stopword]
+
+ko = nltk.Text(ko)
+
+ko.vocab().most_common(50) # 미리보기
+
+# 3차 정제
+stopword=['가장','전체','이후','인근','단체','사업','모나코','러시아','사회','지구','우려','파리']
+
+ko = [eachword for eachword in ko if eachword not in stopword]
+
+ko = nltk.Text(ko)
+
+data = ko.vocab().most_common(50) # 추출한 단어를 data변수에 넣음
+
+#--------------------------------------
+
+# 그래프 그리기
+import matplotlib.pyplot as plt
+from matplotlib import font_manager,rc
+font_name = font_manager.FontProperties(fname='c:\windows/Fonts/malgun.ttf').get_name()
+rc('font',family=font_name)
+
+plt.figure(figsize=(12,6))
+ko.plot(50)
+plt.show()
+
+
+# 워드클라우드 그리기
+pip install wordcloud # <아나콘다 프롬포트에서 해주기>
+
+#--여기부터
+from wordcloud import WordCloud
+
+wordcloud = WordCloud(font_path='c:\Windows\Fonts\malgunbd.ttf',background_color='white',width=1000,height=800).generate_from_frequencies(dict(data))
+
+plt.figure(figsize=(10,10))
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.show()
+#--여기까지 한번에 돌리기
+
+###############################################################################
+
+# 50가지 사이드 글자 뽑는 작업해주기
+
+data
+
+ko.concordance('중국') # 연관있는 사이드의 글자들 뽑아주기
+ko.concordance('환경')
+ko.concordance('오염')
+ko.concordance('미국')
+ko.concordance('지역')
+
+ko.concordance('세계')
+ko.concordance('정부')
+ko.concordance('기업')
+ko.concordance('문제')
+ko.concordance('석유')
+
+ko.concordance('에너지')
+ko.concordance('일본')
+ko.concordance('배출')
+ko.concordance('경제')
+ko.concordance('계획')
+
+ko.concordance('개발')
+ko.concordance('발전')
+ko.concordance('베이징')
+ko.concordance('한국')
+ko.concordance('국가')
+
+ko.concordance('생산')
+ko.concordance('온실가스')
+ko.concordance('물질')
+ko.concordance('도시')
+ko.concordance('공장')
+
+ko.concordance('건설')
+ko.concordance('석탄')
+ko.concordance('발생')
+ko.concordance('환경오염')
+ko.concordance('자동차')
+
+ko.concordance('자동차')
+ko.concordance('기술')
+ko.concordance('정책')
+ko.concordance('사용')
+ko.concordance('추진')
+
+ko.concordance('국제')
+ko.concordance('달러')
+ko.concordance('사고')
+ko.concordance('친환경')
+ko.concordance('보호')
+
+ko.concordance('시설')
+ko.concordance('결과')
+ko.concordance('쓰레기')
+ko.concordance('운동')
+ko.concordance('아시아')
+
+ko.concordance('에탄올')
+ko.concordance('이산화탄소')
+ko.concordance('배출량')
+ko.concordance('공급')
+ko.concordance('바다')
