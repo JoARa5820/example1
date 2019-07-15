@@ -1,0 +1,349 @@
+#install.packages('rvest')
+library(rvest)
+
+
+rm(list=ls())
+
+
+
+# <URL 뽑아내는 for문>
+
+url <- c()
+
+for(i in 1:10){
+  # 각 페이지 URL뽑기
+  html <- read_html(paste("https://search.joins.com/TotalNews?page=",i,"&Keyword=%ED%99%98%EA%B2%BD%20%EC%98%A4%EC%97%BC&SortType=New&SourceGroupType=Joongang&ServiceCode=13&SearchCategoryType=TotalNews",sep=""))
+  
+  #print(html)
+  
+  
+  # 각 페이지 속 (기사별) URL뽑기
+  url <- c(url, html_nodes(html,".section_news .list_default .text .headline")%>%
+             html_nodes('a')%>%
+             html_attr('href'))
+}
+
+
+#url
+#url[99]
+#class(url)
+
+
+
+# <뽑아낸 URL로 실제 본문 뽑아내는 for문>
+
+news <- c()
+
+#length(url)
+
+for(i in 1:length(url)){
+  html <- read_html(url[i])
+  # print(html)
+  
+  txt <- html_node(html,"#article_body")%>%
+    html_text()
+  #print(txt)
+  news <- c(news,txt)
+}
+
+
+news
+
+
+
+# news 값을 파일로 떨어트리기
+write(unlist(news),"c:/data/news.txt")
+news <- readLines("c:/data/news.txt")
+#news
+#class(news)
+
+
+####################################################
+
+# 파일로 단어 불러들이기
+
+#install.packages('KoNLP')
+library(KoNLP)
+useSejongDic()
+
+buildDictionary(ext_dic="sejong",user_dic=data.frame(readLines('c:/data/R단어모음.txt'),"ncn"),replace_usr_dic=T)
+
+####################################################
+#install.packages('rJava')
+library(rJava)
+
+#install.packages('KoNLP')
+library(KoNLP)
+
+#install.packages('wordcloud')
+library(wordcloud)
+
+#install.packages("stringr")
+library(stringr)
+
+#display.brewer.all()
+library(RColorBrewer) # brewer.pal 사용시
+####################################################
+
+# 위에서 했음
+
+#write(unlist(news),"c:/data/news.txt")
+#news <- readLines("c:/data/news.txt")
+
+#news
+#class(news)
+
+
+
+# 여기서 첫 정제작업 해준 후에 중간에 있는 띄워쓰기 붙여주기
+
+news <- gsub("[[:digit:]]","", news)
+
+news <- gsub("[[:punct:]]","", news)
+
+news <- gsub("O+","",news) # 특정한 문자가 연속으로 나올때
+news <- gsub("→","", news)
+news <- gsub("◆","",news)
+
+
+
+# 단어화시키기
+
+news1 <- extractNoun(news)
+
+#news1
+#class(news1)
+#news1[[1000]]
+
+
+# 한줄에 한번씩만 체크되도록 해주기
+
+#length(news1)
+
+for (i in 1:length(news1)){
+  news1[[i]] <- unique(news1[[i]])
+}
+
+#class(news1)
+
+# 빈도수 체크할 때 리스트형이면 각 리스트 안에 있는 단어의 빈도수만 체크하고 전체적인 빈도수를 체크하지 못함
+news2 <- unlist(news1)
+
+
+
+# 한글자짜리 단어 없애기
+news2 <- Filter(function(x) {nchar(x) >= 2} ,news2)
+
+news2 <- gsub(" ","",news2)
+
+
+# 쓸데없는 단어들 정제
+
+#news2
+
+news3 <- c()
+#news3
+
+# if (i가 단어들~이 아니면, 아닌 i값을 data5에 넣음)
+# 분석할 필요 없는 "불용어"는 지워버림
+for (i in news2){
+  if (!i %in% c('UA','정부','들이','하기','때문','하게','지난해',
+                '지역','관련','미국','발표','보도','사진','특파원','경우',
+                '일현지시간','시작','사람','중앙','가운데','세계','결과',
+                '달러','국가','뉴스','환경','대부분','최대','설명','이번',
+                '시간','이후','지난달','하나','내용','대통령','올해','당시',
+                '마련','우리','일부','조사','주민','기록','수입','전체')){
+    news3 <- c(news3,i)
+  }
+}
+
+news3 <- gsub("중국이","중국",news3)
+
+
+#news3 <- gsub(" ","",news3)
+
+#news3
+
+
+
+# 빈도수 체크
+
+# install.packages('wordcloud')
+# library(wordcloud)
+
+wordcount <- table(news3)
+#wordcount 
+wordcount1 <- head(sort(wordcount, decreasing = T),50)
+wordcount1
+
+
+
+
+# 그림 그리기
+# library(RColorBrewer) # brewer.pal 사용시
+# display.brewer.all()
+
+palete <- brewer.pal(8,"Dark2") 
+wordcloud(names(wordcount1),
+          freq=wordcount1,
+          scale=c(3,0.1),
+          random.order=F,
+          random.color=T,
+          colors=palete)
+
+
+
+# 모양 바꿔서 단어 빈도수에 따른 그림 보여주기
+#install.packages('wordcloud2')
+library(wordcloud2)
+
+wordcloud2(wordcount1,shape='pentagon',size=0.5)
+wordcloud2(wordcount1,shape='pyramid',size=0.5)
+
+
+
+
+# 분석하기
+
+news <- readLines("c:/data/news.txt")
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}중국[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+대기,천연가스,오염,대기오염,가스,스모그,미세먼지,수명
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}오염[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+공기오염,대기오염,해양오염,베이징,미세먼지,자동차,플라스틱,배기가스,실내오
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}문제[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+플라스틱 문제의 심각성,오염수 문제,유해성 문제, 보라카이,쓰레기 문제
+#head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}이상[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}계획[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+청정전력계획,플라스틱,전기차,포장재 바꾸기,빨대 금지,바다방출계획
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}사용[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+석탄,일회용 플라스틱,일회용 빨대,종이빨대,뚜껑,중국의 화석연료 사용량,바다로 유입,일회용품 사용,
+포장지 재사용 및 재활용,천연가스,화석연료,텀블러,미세플라스틱,비닐봉지
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}정도[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+가스배출정도
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}심각[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+오염도 수치,해양오염,대기오염,플라스틱 문제,
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}포함[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+폐지,플라스틱,빨대
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}영국[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+플라스틱,산업혁명,전기가스회사
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}배출[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+전력부문 탄소배출 규제,온실가스 배출량,분리배출제도,유럽의 플라스틱 배출 전략,오염물질 배출,이산화탄소 배출,마이크로비즈 배출,배기가스 배출
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}영향[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+방사능,환경,건강,심혈관계
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}가능[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+청정에너지,재생 가능 에너지,에너지
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}업체[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+에너지업체,화학업체,친환경,디젤엔진,재활용업체,석탄업체,자동차업체
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}필요[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+플라스틱
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}수준[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+초미세먼지,배기가스,배기가스,배출가스
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}이유[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+해양오염,폐플라스틱,하수시설(보라카이)
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}개발[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+석유개발업체,디젤차,신에너지그룹의 유엔개발계획,석탄개발업체
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}중단[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+폐기물 수입,폐플라스틱 수입
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}기업[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+전기차 기업,자동차 기업,오염기업 퇴출 작업
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}미세[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+미세먼지,베이징,미세플라스틱
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}생산[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+디젤차,자동차,깨끗한 공기,플라스틱,리튬 생산,코발트
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}에너지[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+천연가스,청정에너지,에너지-화학업체,풍력-수력,바이오에너지,에너지정책,재생가능 에너지,신에너지
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}연구[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+에너지정책연구,지구온난화,중국,베이징
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}차량[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+베이징,디젤차량,휘발유차량,배출량 높은 차량 금지,디젤 차량 규제
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}해결[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+플라스틱 문제,대기오염 문제,미세먼지 문제,환경오염
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}금지[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+플라스틱 제품 금지,폐플라스틱-폐기물 수입,연료자동차 금지,빨대 금지,커피스틱 금지,디젤차 금지
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}기준[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+폐플라스틱,방사성 물질,초미세먼지
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}시장[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+전기차 시장(자동차업계)
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}정책[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+친환경 정책,에너지 정책,폐기물 정책,천연가스,비닐봉지,미세먼지
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}도시[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+오염도,디젤차,친환경,대기(공기)
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}분석[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+기후변화
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}비용[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+환경 파괴(오염)비용,처리비용,쓰레기 처리 비용,정화 비용
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}상황[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+대기상황,오염배출상황
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}주요[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+이산화탄소 배출국,미세먼지의 주요 원인
+
+#head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}가능성[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}쓰레기[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+쓰레기 섬,플라스틱,재활용
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}이용[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+전기,태양열,플라스틱,화석연료,디젤차,석탄
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}지적[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+해양생물 위혐,환경오염 유발,오염 심각
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}진행[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+토양오염 급속도로 진행
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}공기[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+공기질,공기정화,공기오염,공기청정기,질소산화물,깨끗한 공기
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}규모[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+석탄,석유화학단지,폐기물 규모
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}물질[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+친환경물질 대체,석유화학물질,오염물질 배출,대기오염
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}자동차[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+독일 자동차업계,디젤차,배기가스(매연),베이징
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}공장[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+석탄공장,오염물질 배출 공장 폐쇄,중국
+
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}목표[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+중국,대기오염 개선 목표,베이징
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}발생[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+먼지,미세먼지,플라스틱 폐기물,기업오염 발생 집중단속,미국의 탄소발생량,재활용품
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}발전[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+화력발전소,화력발전량 줄이기,석탄발전소,태양열 발전소,풍력발전기,친환경 발전
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}우려[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+방사능 오염
+head(unlist(str_extract_all(news,'[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}[" "]{0,}추진[" "]{0,}[[:alpha:]]{0,}[" "]{0,}[[:alpha:]]{0,}')),30)
+전기차,미세먼지 저감책,오염수
+
+#############################################################################################################################################
+
+
+# 그래프 그리기
+
+wordcount <- table(news3)
+#wordcount 
+wordcount1 <- head(sort(wordcount, decreasing = T),50)
+wordcount1
+
+#install.packages('reshape2')
+#library(reshape2)
+
+wordcount2 <- melt(wordcount1)
+
+colnames(wordcount2) <- c('word','count')
+
+wordcount2
+#class(wordcount2): 데이터프레임
+
+bp <- barplot(wordcount2[,2],names.arg=wordcount2[,1],main='지구촌의 환경오염 문제',col=rainbow(length(wordcount2[,1])),las=2,ylim=c(0,80),xlab='빈출단어',ylab='도수')
+
+abline(h=seq(0,80,10),col='black',lty=2) # 수평선을 긋겠다. * lty : 선의 종류
+
+text(bp,y=wordcount2[,2]+2,labels=wordcount2[,2]) # y=total*1.1 : 글자 포지션을 원래 위치보다 10% 위에 올려 써주겠다.
+
+
+#############################################################################################################################################
+
+
+
